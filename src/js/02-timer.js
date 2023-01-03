@@ -1,76 +1,62 @@
+import flatpickr from 'flatpickr'; 
+import { Report } from 'notiflix/build/notiflix-report-aio'; 
 
-import flatpickr from 'flatpickr';
 import 'flatpickr/dist/flatpickr.min.css';
-import Notiflix from 'notiflix';
-
-const startButton = document.querySelector('button[data-start]');
-const timerContainer = document.querySelector('.timer');
-
-startButton.addEventListener('click', onStartButtonClick);
-startButton.disabled = true;
-let chosenTime = null;
-let deltaTime = null;
-let timerId = null;
+import 'flatpickr/dist/themes/dark.css';
 
 
-const flatpickRef = flatpickr('#datetime-picker', {
+const startBtn = document.querySelector('button[data-start]');
+const input = document.querySelector('#datetime-picker');
+const daysEl = document.querySelector('span[data-days]');
+const hoursEl = document.querySelector('span[data-hours]');
+const minutesEl = document.querySelector('span[data-minutes]');
+const secondsEl = document.querySelector('span[data-seconds]');
+
+let futureTime = null;
+let intervalId = null;
+
+
+const options = {
   enableTime: true,
   time_24hr: true,
   defaultDate: new Date(),
   minuteIncrement: 1,
- 
   onClose(selectedDates) {
-    console.log(selectedDates[0]);
-    setTimeout(() => {
- 
-      if (selectedDates[0].getTime() < Date.now()) {
-       
-        Notiflix.Notify.failure('Please choose a date in the future');
-        return;
-      }
-      startButton.removeAttribute('disabled');
-      chosenTime = selectedDates[0];
-    }, 0);
-  },
-});
-
-
-function onStartButtonClick(event) {
-  event.currentTarget.disabled = true;
-
- 
-  timerId = setInterval(() => {
-    deltaTime = chosenTime.getTime() - Date.now();
-
-    
-    const { days, hours, minutes, seconds } = convertMs(deltaTime);
-
-    
-    if (deltaTime <= 0) {
-      clearInterval(timerId);
-      flatpickRef.element.disabled = false;
+    futureTime = selectedDates[0].getTime();
+    const startTime = Date.now();
+    const deltaTime = futureTime - startTime;
+    if (deltaTime > 0) {
+      startBtn.removeAttribute('disabled');
     } else {
-      updateTimer({ days, hours, minutes, seconds });
+      Report.failure('Please choose a date in the future', '', 'Okey');
+      startBtn.setAttribute('disabled', true);
     }
-  }, 1000);
-}
+  },
+};
+flatpickr('#datetime-picker', options); 
 
-function updateTimer({ days, hours, minutes, seconds }) {
+const timer = {
+  start() {
+    intervalId = setInterval(() => {
+      const startTime = Date.now();
+      const deltaTime = futureTime - startTime;
 
-  timerContainer.firstElementChild.firstElementChild.textContent =
-    addLeadingZero(`${days}`);
-  timerContainer.children[1].firstElementChild.textContent = addLeadingZero(
-    `${hours}`
-  );
-  timerContainer.children[2].firstElementChild.textContent = addLeadingZero(
-    `${minutes}`
-  );
-  timerContainer.lastElementChild.firstElementChild.textContent =
-    addLeadingZero(`${seconds}`);
+      const time = convertMs(deltaTime);
+      deltaTime < 0 ? clearInterval(intervalId) : updateClockFace(time);
+    }, 1000);
 
-  
-  flatpickRef.element.disabled = true;
-}
+    startBtn.setAttribute('disabled', true);
+    input.setAttribute('disabled', true);
+  },
+};
+
+
+startBtn.addEventListener('click', timer.start.bind(timer));
+
+
+startBtn.setAttribute('disabled', true);
+
+
 
 function convertMs(ms) {
  
@@ -79,19 +65,27 @@ function convertMs(ms) {
   const hour = minute * 60;
   const day = hour * 24;
 
- 
-  const days = Math.floor(ms / day);
 
-  const hours = Math.floor((ms % day) / hour);
-
-  const minutes = Math.floor(((ms % day) % hour) / minute);
+  const days = addLeadingZero(Math.floor(ms / day));
  
-  const seconds = Math.floor((((ms % day) % hour) % minute) / second);
+  const hours = addLeadingZero(Math.floor((ms % day) / hour));
+ 
+  const minutes = addLeadingZero(Math.floor(((ms % day) % hour) / minute));
+ 
+  const seconds = addLeadingZero(
+    Math.floor((((ms % day) % hour) % minute) / second)
+  );
 
   return { days, hours, minutes, seconds };
 }
 
-
 function addLeadingZero(value) {
   return String(value).padStart(2, '0');
+}
+
+function updateClockFace({ days, hours, minutes, seconds }) {
+  daysEl.textContent = `${days}`;
+  hoursEl.textContent = `${hours}`;
+  minutesEl.textContent = `${minutes}`;
+  secondsEl.textContent = `${seconds}`;
 }
